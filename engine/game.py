@@ -240,6 +240,9 @@ class MacroMateEngine(object):
         plt.xlim(-0.5, w)
         plt.ylim(w, -0.5)
 
+        # Show score
+        plt.title(self.utils.get_score_string(self.board_state))
+        
         # Show plot only if no other plots are open
         if created_figure:
             plt.show()
@@ -249,7 +252,7 @@ class MacroMateEngine(object):
 if __name__ == "__main__":
     engine = MacroMateEngine()
 
-    engine.setup_random_starts(seed=1)
+    engine.setup_random_starts()
 
     # engine.simulate_one_round()
     engine.update_board()

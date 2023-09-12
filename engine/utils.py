@@ -12,22 +12,6 @@ diagonal_neighbours = np.array([[-1, -1], [-1, 1], [1, -1], [1, 1]], dtype=np.in
 straight_neighbours = np.array([[-1, 0], [0, -1], [0, 1], [1, 0]], dtype=np.int8)
 all_neighbours = np.vstack((diagonal_neighbours, straight_neighbours))
 
-# Starting right, clockwise
-straight_lines = np.array([
-    [[1, 0], [2, 0], [3, 0], [4, 0], [5, 0], [6, 0], [7, 0], [8, 0]], # Right
-    [[0, -1], [0, -2], [0, -3], [0, -4], [0, -5], [0, -6], [0, -7], [0, -8]], # Down
-    [[-1, 0], [-2, 0], [-3, 0], [-4, 0], [-5, 0], [-6, 0], [-7, 0], [-8, 0]], # Left
-    [[0, 1], [0, 2], [0, 3], [0, 4], [0, 5], [0, 6], [0, 7], [0, 8]], # Up
-], dtype=np.int8)
-
-diagonal_lines = np.array([
-    [[1, 1], [2, 2], [3, 3], [4, 4], [5, 5], [6, 6], [7 ,7], [8, 8]], # Right up
-    [[-1, 1], [-2, 2], [-3, 3], [-4, 4], [-5, 5], [-6, 6], [-7 ,7], [-8, 8]], # Right down
-    [[-1, -1], [-2, -2], [-3, -3], [-4, -4], [-5, -5], [-6, -6], [-7 ,-7], [-8, -8]], # Left down
-    [[1, -1], [2, -2], [3, -3], [4, -4], [5, -5], [6, -6], [7 ,-7], [8, -8]], # Left up
-], dtype=np.int8)
-queen_lines = np.vstack((straight_lines, diagonal_lines))
-
 pawn_moves = straight_neighbours
 pawn_captures = diagonal_neighbours
 knight_moves = np.array([[-2, -1], [-2, 1], [-1, -2], [-1, 2], [1, -2], [1, 2], [2, -1], [2, 1]], dtype=np.int8)
@@ -35,6 +19,9 @@ king_moves = all_neighbours
 
 piece_values = np.array([1, 2, 5, 6, 10, 100], dtype=np.int8)
 
+player_names = [
+    "Blue", "Orange", "Green", "Red", "Purple", "Brown", "Pink", "Light Blue"
+]
 
 class Utils:
     def __init__(self, board_state):
@@ -248,7 +235,7 @@ class Utils:
                     break
 
                 target = [x, y]
-                matches = (board_state[x, y, 0] == -1)
+                matches = np.logical_and(board_state[x, y, 1] == -1, board_state[x, y, 0] != -2)
 
                 if matches:
                     positions.append(target)
@@ -280,7 +267,7 @@ class Utils:
                     break
 
                 target = [x, y]
-                matches = (board_state[x, y, 0] == -1)
+                matches = np.logical_and(board_state[x, y, 1] == -1, board_state[x, y, 0] != -2)
 
                 if matches:
                     positions.append(target)
@@ -341,17 +328,36 @@ class Utils:
         # Evaluate the board for a player
         # Territory score
         is_player = (board_state[:, :, 0] == player)
-        territory_score = np.count_nonzero(is_player)
+        territory_score = np.count_nonzero(is_player) * 5
 
         # Piece score
         own_pieces = np.logical_and(board_state[:, :, 1] >= 0, is_player)
         piece_score = np.sum(piece_values[board_state[own_pieces, 1]])
 
-        # Enemy piece score (normalized to viewing area)
+        # Enemy piece score
         enemy_pieces, extent = self.get_enemy_pieces(board_state, player)
         enemy_piece_score = 0
         if enemy_pieces is not None:
-            enemy_piece_score = np.sum(piece_values[board_state[enemy_pieces[:, 0], enemy_pieces[:, 1], 1]])
-            enemy_piece_score /= (extent[1, 0] - extent[0, 0]) * (extent[1, 1] - extent[0, 1])
+            enemy_piece_score = np.sum(piece_values[board_state[enemy_pieces[:, 0], enemy_pieces[:, 1], 1]]) / 5
 
-        return territory_score + piece_score - enemy_piece_score
+        # Enemy territory score
+        enemy_territory = np.logical_and(board_state[:, :, 0] >= 0, ~is_player)
+        enemy_territory_score = np.count_nonzero(enemy_territory) / 5
+        return territory_score + piece_score - enemy_piece_score - enemy_territory_score
+    
+    def get_score_string(self, board_state):
+        # A string with the territory for each player (with color name)
+        # and the piece score for each player
+        # Find unique players
+        players = np.unique(board_state[:, :, 0])
+        players = players[players >= 0]
+
+        # Get the territory and piece score for each player
+        msg = ""
+        for player in players:
+            is_player = board_state[:, :, 0] == player
+            territory_score = np.count_nonzero(is_player)
+            own_pieces = np.logical_and(board_state[:, :, 1] >= 0, is_player)
+            piece_score = np.sum(piece_values[board_state[own_pieces, 1]])
+            msg += f"{player_names[player]}: {territory_score}, {piece_score}   "
+        return msg

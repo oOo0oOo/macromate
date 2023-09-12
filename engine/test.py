@@ -245,94 +245,111 @@ class TestUtils(unittest.TestCase):
             exp_lines = exp_lines[exp_lines[:, 1] < board.shape[0]]
             np.testing.assert_array_equal(lines, exp_lines)
 
-    def test_check_lines(self):
-        # Other player should block the line on the same field
-        # Own player should block the line on the field before
+    # def test_check_lines(self):
+    #     # Other player should block the line on the same field
+    #     # Own player should block the line on the field before
 
+    #     board = get_empty_board()
+    #     utils = Utils(board)
+
+    #     for __ in range(12):
+    #         board = get_empty_board()
+    #         pos = np.random.randint(8, board.shape[0] - 8, 2)
+    #         player = 0
+    #         piece = 4  # Queen
+    #         pre_lines, start_indices = utils.all_moves[pos[0]][pos[1]][piece]
+
+    #         # Place a single queen of the player
+    #         board[pos[0], pos[1], 0] = player
+    #         board[pos[0], pos[1], 1] = piece
+
+    #         # Check unblocked
+    #         own_mask, other_mask = utils.get_masks(board, player)
+    #         unblocked_lines = utils.check_lines(pre_lines, start_indices, own_mask, other_mask)
+    #         num_unblocked = unblocked_lines.shape[0]
+
+    #         # Surround with enemy pawns
+    #         dist = np.random.randint(1, 8)
+    #         ppos = np.array([
+    #             (pos[0] - dist, pos[1] - dist),
+    #             (pos[0] - dist, pos[1]),
+    #             (pos[0] - dist, pos[1] + dist),
+    #             (pos[0], pos[1] - dist),
+    #             (pos[0], pos[1] + dist),
+    #             (pos[0] + dist, pos[1] - dist),
+    #             (pos[0] + dist, pos[1]),
+    #             (pos[0] + dist, pos[1] + dist),
+    #         ])
+    #         board[ppos[:, 0], ppos[:, 1], 0] = 1
+    #         board[ppos[:, 0], ppos[:, 1], 1] = 0
+
+    #         # Check that the line is blocked by the other player
+    #         own_mask, other_mask = utils.get_masks(board, player)
+    #         blocked_lines = utils.check_lines(pre_lines, start_indices, own_mask, other_mask)
+    #         num_blocked = blocked_lines.shape[0]
+    #         self.assertEqual(num_blocked, 8 * dist, msg=f"OTHER WRONG pos: {pos} dist: {dist}")
+    #         self.assertTrue(num_unblocked > num_blocked)
+
+    #         # # Check that the line is blocked by the own player
+    #         # # Convert pawns to own player
+    #         board[ppos[:, 0], ppos[:, 1], 0] = 0
+    #         own_mask, other_mask = utils.get_masks(board, player)
+    #         blocked_lines = utils.check_lines(pre_lines, start_indices, own_mask, other_mask)
+    #         self.assertEqual(blocked_lines.shape[0], 8 * (dist - 1), msg=f"OWN WRONG pos: {pos} dist: {dist}")
+
+    # def test_check_lines_corner(self):
+    #     board = get_empty_board()
+    #     utils = Utils(board)
+    #     corners = [
+    #         ((0, 0), (1, 1)),
+    #         ((0, board.shape[0] - 1), (1, -1)),
+    #         ((board.shape[0] - 1, 0), (-1, 1)),
+    #         ((board.shape[0] - 1, board.shape[0] - 1), (-1, -1)),
+    #     ]
+
+    #     for pos, direction in corners:
+    #         pre_lines, start_indices = utils.all_moves[pos[0]][pos[1]][4]
+    #         for dist in range(7, 0, -1):
+    #             board = get_empty_board()
+    #             board[pos[0], pos[1], 0] = 0
+    #             board[pos[0], pos[1], 1] = 4
+
+    #             # Surround with enemy pawns
+    #             ppos = np.array([
+    #                 (pos[0], pos[1] + dist * direction[1]),
+    #                 (pos[0] + dist * direction[0], pos[1]),
+    #                 (pos[0] + dist * direction[0], pos[1] + dist * direction[1]),
+    #             ])
+    #             board[ppos[:, 0], ppos[:, 1], 0] = 1
+    #             board[ppos[:, 0], ppos[:, 1], 1] = 0
+
+    #             own_mask, other_mask = utils.get_masks(board, 0)
+    #             blocked_lines = utils.check_lines(pre_lines, start_indices, own_mask, other_mask)
+    #             self.assertEqual(blocked_lines.shape[0], 3 * dist, msg=f"OTHER WRONG pos: {pos} dist: {dist}")
+
+    #             # Convert pawns to own player
+    #             board[ppos[:, 0], ppos[:, 1], 0] = 0
+    #             own_mask, other_mask = utils.get_masks(board, 0)
+    #             blocked_lines = utils.check_lines(pre_lines, start_indices, own_mask, other_mask)
+    #             self.assertEqual(blocked_lines.shape[0], 3 * (dist - 1), msg=f"OWN WRONG pos: {pos} dist: {dist}")
+
+    def test_straight_lines_simple(self):
         board = get_empty_board()
         utils = Utils(board)
 
-        for __ in range(12):
-            board = get_empty_board()
-            pos = np.random.randint(8, board.shape[0] - 8, 2)
-            player = 0
-            piece = 4  # Queen
-            pre_lines, start_indices = utils.all_moves[pos[0]][pos[1]][piece]
+        # Add a single piece (rook)
+        pos = np.random.randint(8, board.shape[0] - 8, 2)
+        player = 0
+        piece = 3  # Rook
+        board[pos[0], pos[1], 0] = player
+        board[pos[0], pos[1], 1] = piece
 
-            # Place a single queen of the player
-            board[pos[0], pos[1], 0] = player
-            board[pos[0], pos[1], 1] = piece
+        own_mask, other_mask = utils.get_masks(board, player)
 
-            # Check unblocked
-            own_mask, other_mask = utils.get_masks(board, player)
-            unblocked_lines = utils.check_lines(pre_lines, start_indices, own_mask, other_mask)
-            num_unblocked = unblocked_lines.shape[0]
+        # Check straight lines simple
+        lines = utils.check_straight_lines(board, pos, own_mask, other_mask)
 
-            # Surround with enemy pawns
-            dist = np.random.randint(1, 8)
-            ppos = np.array([
-                (pos[0] - dist, pos[1] - dist),
-                (pos[0] - dist, pos[1]),
-                (pos[0] - dist, pos[1] + dist),
-                (pos[0], pos[1] - dist),
-                (pos[0], pos[1] + dist),
-                (pos[0] + dist, pos[1] - dist),
-                (pos[0] + dist, pos[1]),
-                (pos[0] + dist, pos[1] + dist),
-            ])
-            board[ppos[:, 0], ppos[:, 1], 0] = 1
-            board[ppos[:, 0], ppos[:, 1], 1] = 0
-
-            # Check that the line is blocked by the other player
-            own_mask, other_mask = utils.get_masks(board, player)
-            blocked_lines = utils.check_lines(pre_lines, start_indices, own_mask, other_mask)
-            num_blocked = blocked_lines.shape[0]
-            self.assertEqual(num_blocked, 8 * dist, msg=f"OTHER WRONG pos: {pos} dist: {dist}")
-            self.assertTrue(num_unblocked > num_blocked)
-
-            # # Check that the line is blocked by the own player
-            # # Convert pawns to own player
-            board[ppos[:, 0], ppos[:, 1], 0] = 0
-            own_mask, other_mask = utils.get_masks(board, player)
-            blocked_lines = utils.check_lines(pre_lines, start_indices, own_mask, other_mask)
-            self.assertEqual(blocked_lines.shape[0], 8 * (dist - 1), msg=f"OWN WRONG pos: {pos} dist: {dist}")
-
-    def test_check_lines_corner(self):
-        board = get_empty_board()
-        utils = Utils(board)
-        corners = [
-            ((0, 0), (1, 1)),
-            ((0, board.shape[0] - 1), (1, -1)),
-            ((board.shape[0] - 1, 0), (-1, 1)),
-            ((board.shape[0] - 1, board.shape[0] - 1), (-1, -1)),
-        ]
-
-        for pos, direction in corners:
-            pre_lines, start_indices = utils.all_moves[pos[0]][pos[1]][4]
-            for dist in range(7, 0, -1):
-                board = get_empty_board()
-                board[pos[0], pos[1], 0] = 0
-                board[pos[0], pos[1], 1] = 4
-
-                # Surround with enemy pawns
-                ppos = np.array([
-                    (pos[0], pos[1] + dist * direction[1]),
-                    (pos[0] + dist * direction[0], pos[1]),
-                    (pos[0] + dist * direction[0], pos[1] + dist * direction[1]),
-                ])
-                board[ppos[:, 0], ppos[:, 1], 0] = 1
-                board[ppos[:, 0], ppos[:, 1], 1] = 0
-
-                own_mask, other_mask = utils.get_masks(board, 0)
-                blocked_lines = utils.check_lines(pre_lines, start_indices, own_mask, other_mask)
-                self.assertEqual(blocked_lines.shape[0], 3 * dist, msg=f"OTHER WRONG pos: {pos} dist: {dist}")
-
-                # Convert pawns to own player
-                board[ppos[:, 0], ppos[:, 1], 0] = 0
-                own_mask, other_mask = utils.get_masks(board, 0)
-                blocked_lines = utils.check_lines(pre_lines, start_indices, own_mask, other_mask)
-                self.assertEqual(blocked_lines.shape[0], 3 * (dist - 1), msg=f"OWN WRONG pos: {pos} dist: {dist}")
-
+        print(lines)
 
 if __name__ == '__main__':
     unittest.main()

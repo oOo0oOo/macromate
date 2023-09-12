@@ -57,16 +57,10 @@ class Utils:
             return [pos, pos2]
         elif piece == 1:
             return self.precalculate_moves(self.initial_board_state, position + knight_moves)
-        elif piece == 2:
-            return self.precalculate_lines(self.initial_board_state, diagonal_lines.copy() + position)
-        elif piece == 3:
-            return self.precalculate_lines(self.initial_board_state, straight_lines.copy() + position)
-        elif piece == 4:
-            return self.precalculate_lines(self.initial_board_state, queen_lines.copy() + position)
         elif piece == 5:
             return self.precalculate_moves(self.initial_board_state, position + king_moves)
         else:
-            raise Exception("Invalid piece type", piece)
+            return None
 
     def search_tree(self, board_state, player, distance=8, depth=DEPTH_SEARCH, alpha=-np.inf, beta=np.inf, is_player=True):
         is_root = depth == DEPTH_SEARCH
@@ -127,7 +121,7 @@ class Utils:
         moves = []
         for piece in np.argwhere(own_mask):
             m = self.get_moves_position(board_state, piece, own_mask, other_mask)
-            if m is not None:
+            if m is not None and m.shape[0] > 0:
                 # Add position to move
                 m = np.hstack((np.tile(piece, (m.shape[0], 1)), m))
                 moves.append(m)
@@ -160,7 +154,7 @@ class Utils:
         moves = []
         for piece, mask_id in zip(enemy_pieces, enemy_mask):
             m = self.get_moves_position(board_state, piece, own_mask[mask_id, :, :], other_mask[mask_id, :, :])
-            if m is not None:
+            if m is not None and m.shape[0] > 0:
                 # Add position to move
                 m = np.hstack((np.tile(piece, (m.shape[0], 1)), m))
                 moves.append(m)
@@ -192,11 +186,11 @@ class Utils:
         elif piece_type == 1:
             return self.get_knight_moves(position, own_mask)
         elif piece_type == 2:
-            return self.get_bishop_moves(position, own_mask, other_mask)
+            return self.get_bishop_moves(board_state, position, own_mask, other_mask)
         elif piece_type == 3:
-            return self.get_rook_moves(position, own_mask, other_mask)
+            return self.get_rook_moves(board_state, position, own_mask, other_mask)
         elif piece_type == 4:
-            return self.get_queen_moves(position, own_mask, other_mask)
+            return self.get_queen_moves(board_state, position, own_mask, other_mask)
         elif piece_type == 5:
             return self.get_king_moves(position, own_mask)
         else:
@@ -217,50 +211,88 @@ class Utils:
         moves = self.all_moves[position[0]][position[1]][1]
         return moves[~own_mask[moves[:, 0], moves[:, 1]], :]
     
-    def get_bishop_moves(self, position, own_mask, other_mask):
-        lines, start_indices = self.all_moves[position[0]][position[1]][2]
-        return self.check_lines(lines, start_indices, own_mask, other_mask)
+    def get_bishop_moves(self, board_state, position, own_mask, other_mask):
+        return self.check_diagonal_lines(board_state, position, own_mask, other_mask)
 
-    def get_rook_moves(self, position, own_mask, other_mask):
-        lines, start_indices = self.all_moves[position[0]][position[1]][3]
-        return self.check_lines(lines, start_indices, own_mask, other_mask)
+    def get_rook_moves(self, board_state, position, own_mask, other_mask):
+        return self.check_straight_lines(board_state, position, own_mask, other_mask)
 
-    def get_queen_moves(self, position, own_mask, other_mask):
-        lines, start_indices = self.all_moves[position[0]][position[1]][4]
-        return self.check_lines(lines, start_indices, own_mask, other_mask)
+    def get_queen_moves(self, board_state, position, own_mask, other_mask):
+        lines = self.check_straight_lines(board_state, position, own_mask, other_mask)
+        lines2 = self.check_diagonal_lines(board_state, position, own_mask, other_mask)
+        if lines2.size == 0:
+            return lines
+        elif lines.size == 0:
+            return lines2
+        return np.concatenate((lines, lines2))
 
     def get_king_moves(self, position, own_mask):
         moves = self.all_moves[position[0]][position[1]][5]
         return moves[~own_mask[moves[:, 0], moves[:, 1]], :]
     
-    def check_lines(self, lines, start_indices, own_mask, other_mask):    
-        # Get indices of other pieces
-        # Exclude all start_indices from the other_indices
-        is_other = other_mask[lines[:, 0], lines[:, 1]]
-        blocked_indices = np.flatnonzero(is_other) + 1  # We can capture pieces but have to stop there.
-        blocked_indices = np.setdiff1d(blocked_indices, start_indices)
+    def check_straight_lines(self, board_state, position, own_mask, other_mask):
+        # Check horizontal and vertical lines in both directions
+        directions = [(1, 0, lambda x: x < self.grid_height),     # Right
+                    (0, -1, lambda x: x >= 0),                  # Down
+                    (-1, 0, lambda x: x >= 0),                  # Left
+                    (0, 1, lambda x: x < self.grid_height)      # Up
+                    ]
 
-        is_own = own_mask[lines[:, 0], lines[:, 1]]
-        blocked_indices = np.append(blocked_indices, np.flatnonzero(is_own)) # We can't move through our own pieces
-        
-        if blocked_indices.shape[0] == 0:
-            return lines
-        
-        # Add max length to blocked_indices
-        blocked_indices = np.append(blocked_indices, lines.shape[0])
+        positions = []
 
-        # Find the indices corresponding to block
-        indices = np.searchsorted(blocked_indices, start_indices, side='left')
-        indices = np.clip(indices, 0, blocked_indices.size - 1)
-        
-        end_indices = np.where(indices != len(blocked_indices), blocked_indices[indices], lines.shape[0])
+        for i, (x_move, y_move, validate) in enumerate(directions):
+            for diff in range(1, MAX_STEPS + 1):
+                x, y = position[0] + x_move * diff, position[1] + y_move * diff
 
-        # Apply blocking - the valid lines are between start_indices and end_indices
-        valid_sections = [lines[start:end] for start, end in zip(start_indices, end_indices)]
+                if not validate(x if x_move else y):
+                    break
 
-        # Concatenate all the valid_sections into single array
-        lines = np.concatenate(valid_sections)
-        return lines
+                target = [x, y]
+                matches = (board_state[x, y, 0] == -1)
+
+                if matches:
+                    positions.append(target)
+                elif other_mask[x, y]:
+                    positions.append(target)
+                    break
+                elif own_mask[x, y]:
+                    break
+                else:
+                    break
+
+        return np.array(positions)
+    
+    def check_diagonal_lines(self, board_state, position, own_mask, other_mask):
+        # Check diagonal lines in both directions
+        directions = [(1, 1, lambda x, y: x < self.grid_height and y < self.grid_height),    # Diagonal to down-right
+                    (-1, -1, lambda x, y: x >= 0 and y >= 0),                               # Diagonal to up-left
+                    (-1, 1, lambda x, y: x >= 0 and y < self.grid_height),                   # Diagonal to up-right
+                    (1, -1, lambda x, y: x < self.grid_height and y >= 0)                   # Diagonal to down-left
+                    ]
+
+        positions = []
+
+        for i, (x_move, y_move, validate) in enumerate(directions):
+            for diff in range(1, MAX_STEPS + 1):
+                x, y = position[0] + x_move * diff, position[1] + y_move * diff
+
+                if not validate(x, y):
+                    break
+
+                target = [x, y]
+                matches = (board_state[x, y, 0] == -1)
+
+                if matches:
+                    positions.append(target)
+                elif other_mask[x, y]:
+                    positions.append(target)
+                    break
+                elif own_mask[x, y]:
+                    break
+                else:
+                    break
+
+        return np.array(positions)
 
     def get_enemy_pieces(self, board_state, player, distance=-1):
         # Get all enemy pieces within distance of the bounding box of the player
@@ -294,77 +326,6 @@ class Utils:
         positions = positions[valid, :]
         valid = board_state[positions[:, 0], positions[:, 1], 0] != -2
         return positions[valid, :]
-
-    def precalculate_lines(self, board_state, lines):
-        # Return lines and starting indices
-        # Out of bounds or on water is not possible
-        start_indices = np.cumsum(np.ones(lines.shape[0] - 1, dtype=np.int8) * lines.shape[1])
-
-        # Flatten lines to position array
-        lines = lines.copy()
-        lines = lines.reshape((-1, 2))
-
-        # Check if lines exit the board
-        valid = np.logical_and(np.logical_and(lines[:, 0] >= 0, lines[:, 0] < self.grid_height), np.logical_and(lines[:, 1] >= 0, lines[:, 1] < self.grid_height))
-
-        # For each False in valid, we want to subtract one from the start_index
-        invalids = np.argwhere(~valid).flatten()
-
-        # Add zero to start_index, add max length to invalids
-        start_indices = np.insert(start_indices, 0, 0)
-
-        if invalids.size > 0:
-            invalids = np.append(invalids, lines.shape[0])
-
-            indices = np.searchsorted(invalids, start_indices, side='left')
-            indices = np.minimum(indices, invalids.shape[0] - 1)
-            end_indices = np.where(indices != len(invalids), invalids[indices], lines.shape[0])
-
-            # For each end_index take the minimum of it and the next start_index
-            next_starts = np.append(start_indices[1:], lines.shape[0])
-            end_indices = np.minimum(end_indices, next_starts)
-
-            # Remove all sections [end_index[i]: start_index[i+1]] from lines array along first dimension
-            delete_mask = np.hstack([np.arange(end, start) for start, end in zip(next_starts, end_indices)])
-            delete_mask = delete_mask[delete_mask < lines.shape[0]]
-            lines = np.delete(lines, delete_mask, axis=0)
-
-            # Update the start_indices
-            diffs = [start - next_end for start, next_end in zip(next_starts, end_indices)]
-            subtr = np.cumsum(diffs)
-            start_indices = start_indices[1:] - subtr[:-1]
-            start_indices = np.insert(start_indices, 0, 0)
-
-        # # Check if lines are valid, stopped by water
-        invalids = np.argwhere(board_state[lines[:, 0], lines[:, 1], 0] == -2).flatten()
-
-        if invalids.size > 0:
-            invalids = np.append(invalids, lines.shape[0])
-
-            indices = np.searchsorted(invalids, start_indices, side='left')
-            indices = np.minimum(indices, invalids.shape[0] - 1)
-            end_indices = np.where(indices != len(invalids), invalids[indices], lines.shape[0])
-
-            # For each end_index take the minimum of it and the next start_index
-            next_starts = np.append(start_indices[1:], lines.shape[0])
-            end_indices = np.minimum(end_indices, next_starts)
-
-            # Remove all sections [end_index[i]: start_index[i+1]] from lines array along first dimension
-            delete_mask = np.hstack([np.arange(end, start) for start, end in zip(next_starts, end_indices)])
-            delete_mask = delete_mask[delete_mask < lines.shape[0]]
-            lines = np.delete(lines, delete_mask, axis=0)
-
-            # Update the start_indices
-            diffs = [start - next_end for start, next_end in zip(next_starts, end_indices)]
-            subtr = np.cumsum(diffs)
-            start_indices = start_indices[1:] - subtr[:-1]
-            start_indices = np.insert(start_indices, 0, 0)
-        
-        start_indices = np.unique(start_indices)
-        if start_indices[-1] == lines.shape[0]:
-            start_indices = start_indices[:-1]
-            
-        return lines, start_indices
 
     def execute_move(self, board_state, move, inplace=True):
         # Execute a move on the board state

@@ -325,25 +325,26 @@ class Utils:
         return board_state
 
     def evaluate_board(self, board_state, player):
-        # Evaluate the board for a player
+        players = board_state[:, :, 0]
+        pieces = board_state[:, :, 1]
+        
+        # Indices for player and enemy on the board
+        is_pieces = pieces >= 0
+        is_player = players == player
+        player_indices = np.logical_and(is_pieces, is_player)
+        enemy_indices = np.logical_and(is_pieces, ~is_player)
+        
         # Territory score
-        is_player = (board_state[:, :, 0] == player)
-        territory_score = np.count_nonzero(is_player) * 5
-
+        territory_score = np.sum(player_indices) * 5
+        
         # Piece score
-        own_pieces = np.logical_and(board_state[:, :, 1] >= 0, is_player)
-        piece_score = np.sum(piece_values[board_state[own_pieces, 1]])
+        own_pieces_score = np.sum(piece_values[pieces[player_indices]])
+        
+        # Enemy piece and territory score
+        enemy_pieces_score = np.sum(piece_values[pieces[enemy_indices]]) / 5
+        enemy_territory_score = np.sum(enemy_indices) / 5
 
-        # Enemy piece score
-        enemy_pieces, extent = self.get_enemy_pieces(board_state, player)
-        enemy_piece_score = 0
-        if enemy_pieces is not None:
-            enemy_piece_score = np.sum(piece_values[board_state[enemy_pieces[:, 0], enemy_pieces[:, 1], 1]]) / 5
-
-        # Enemy territory score
-        enemy_territory = np.logical_and(board_state[:, :, 0] >= 0, ~is_player)
-        enemy_territory_score = np.count_nonzero(enemy_territory) / 5
-        return territory_score + piece_score - enemy_piece_score - enemy_territory_score
+        return territory_score + own_pieces_score - enemy_pieces_score - enemy_territory_score
     
     def get_score_string(self, board_state):
         # A string with the territory for each player (with color name)

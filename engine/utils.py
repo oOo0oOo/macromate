@@ -1,7 +1,8 @@
 import numpy as np
 from matplotlib import pyplot as plt
 
-from multiprocessing import Pool
+import multiprocessing as mp
+
 
 DEPTH_SEARCH = 3
 
@@ -60,11 +61,10 @@ class Utils:
         # Generate all possible moves for the current player
         moves = self.get_moves_player(board_state, player) if is_player else self.get_moves_enemies(board_state, player, distance)
 
-        # Shuffle player moves
+        # Shuffle own (player, bot) moves
         if is_player:
             np.random.shuffle(moves)
 
-        
         # If there are no possible moves, return the worst score
         if moves is None:
             return -np.inf if is_player else np.inf
@@ -319,30 +319,38 @@ class Utils:
         # Move is a tuple (x, y, x2, y2) starting position and end position
         if not inplace:
             board_state = board_state.copy()
+        
         x, y, x2, y2 = move
+        
+        # Check for king capture = remove all pieces and territory
+        if board_state[x2, y2, 1] == 5:
+            captured_player = board_state[x2, y2, 0]
+            board_state[board_state[:, :, 0] == captured_player, 1] = -1
+            board_state[board_state[:, :, 0] == captured_player, 0] = -1
+
         board_state[x2, y2, :] = board_state[x, y, :]
         board_state[x, y, 1] = -1
         return board_state
 
     def evaluate_board(self, board_state, player):
-        players = board_state[:, :, 0]
         pieces = board_state[:, :, 1]
+        is_pieces = pieces >= 0
+        pieces_score = piece_values[pieces]
         
         # Indices for player and enemy on the board
-        is_pieces = pieces >= 0
-        is_player = players == player
+        is_player = board_state[:, :, 0] == player
         player_indices = np.logical_and(is_pieces, is_player)
-        enemy_indices = np.logical_and(is_pieces, ~is_player)
-        
+
         # Territory score
-        territory_score = np.sum(player_indices) * 5
+        territory_score = np.count_nonzero(is_player)
         
         # Piece score
-        own_pieces_score = np.sum(piece_values[pieces[player_indices]])
+        own_pieces_score = np.sum(pieces_score[player_indices])
         
         # Enemy piece and territory score
-        enemy_pieces_score = np.sum(piece_values[pieces[enemy_indices]]) / 5
-        enemy_territory_score = np.sum(enemy_indices) / 5
+        enemy_indices = np.logical_and(is_pieces, ~is_player)
+        enemy_pieces_score = np.sum(pieces_score[enemy_indices]) / 5
+        enemy_territory_score = np.count_nonzero(np.logical_and(board_state[:, :, 0] >= 0, ~is_player)) / 5
 
         return territory_score + own_pieces_score - enemy_pieces_score - enemy_territory_score
     

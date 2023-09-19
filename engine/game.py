@@ -187,16 +187,14 @@ class MacroMateEngine(object):
                 self.move_scatter = plt.scatter(self.ui_possible_moves[:, 1], self.ui_possible_moves[:, 0], c="green", s=50)
                 plt.draw()
 
+    def create_board_visualization(self):
+        plt.figure(figsize=(12, 12))
+        self.update_board()
+        plt.show()
+
     def update_board(self):
 
-        # Create a new figure only if there is no other plot open
-        created_figure = False
-        if len(plt.get_fignums()) == 0:
-            plt.figure(figsize=(12, 12))
-            created_figure = True
-        else:
-            # Clear the whole plot
-            plt.clf()
+        plt.clf()
 
         # Create the chess pattern on land
         x = np.arange(self.land_grid.shape[1])
@@ -231,6 +229,16 @@ class MacroMateEngine(object):
         # Click handler on plot
         cid = plt.gcf().canvas.mpl_connect('button_press_event', self.onclick)
         
+        # When "s" is pressed simulate one round and update board
+        def on_key(event):
+            if event.key == "r":
+                self.simulate_one_round()
+                self.update_board()
+            if event.key == "p":
+                self.profile_one_round()
+                self.update_board()
+        plt.gcf().canvas.mpl_connect('key_press_event', on_key)
+
         # No padding in figure
         plt.axis('off')
         plt.tight_layout(pad=2)
@@ -243,19 +251,14 @@ class MacroMateEngine(object):
         # Show score
         plt.title(self.utils.get_score_string(self.board_state))
         
-        # Show plot only if no other plots are open
-        if created_figure:
-            plt.show()
-        else:
-            plt.draw()
-
+        plt.draw()
+        
 if __name__ == "__main__":
     engine = MacroMateEngine()
 
-    engine.setup_random_starts()
+    engine.setup_random_starts(seed=0)
 
-    # engine.simulate_one_round()
-    engine.update_board()
+    engine.create_board_visualization()
 
 
 

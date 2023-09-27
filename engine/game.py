@@ -2,16 +2,15 @@
 # All computing is performed using numpy
 
 # Board is 64 x 64 squares, origin at top left
-from random import shuffle
 import subprocess
 import time
+import cProfile
+
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 
-import cProfile, pstats
-
-from utils import PIECE_NAMES, Utils
+from utils import Utils
 
 IMG_FOLDER = "data/img/"
 
@@ -19,6 +18,7 @@ class MacroMateEngine(object):
     
     def __init__(self, num_players=6):
         self.num_players = num_players
+        self.current_player = 0
 
         # Load land / water map as a numpy array
         self.land_grid = 1 - np.load('map/data/land_grid.npy')
@@ -122,8 +122,11 @@ class MacroMateEngine(object):
         before = time.time()
         for player in range(1, self.num_players):
             move = self.get_best_move(player)
+            self.current_player = (player + 1) % self.num_players
             if move is not None:
                 self.execute_move(move)
+            self.update_board()
+            plt.pause(0.1)
 
         duration = round(time.time() - before, 1)
         print(f"Simulated {self.num_players-1} bots in {duration} seconds")
@@ -137,12 +140,14 @@ class MacroMateEngine(object):
         subprocess.run(['gprof2dot', '-f', 'pstats', 'profile_stats', '-o', 'call_graph.dot'])
         subprocess.run(['dot', '-Tpng', 'call_graph.dot', '-o', 'call_graph.png'])
 
-    
     def execute_move(self, move):
         self.board_state = self.utils.execute_move(self.board_state, move)
 
     def execute_human_move(self, move, profile=False):
         self.execute_move(move)
+        self.current_player = (self.current_player + 1) % self.num_players
+        self.update_board()
+        plt.pause(0.3)
         self.position_selected = None
         self.ui_possible_moves = None
 
@@ -188,12 +193,12 @@ class MacroMateEngine(object):
                 plt.draw()
 
     def create_board_visualization(self):
-        plt.figure(figsize=(12, 12))
+        plt.rcParams['toolbar'] = 'None'
+        plt.figure('MacroMate', figsize=(12, 12))
         self.update_board()
         plt.show()
 
     def update_board(self):
-
         plt.clf()
 
         # Create the chess pattern on land
@@ -233,10 +238,8 @@ class MacroMateEngine(object):
         def on_key(event):
             if event.key == "r":
                 self.simulate_one_round()
-                self.update_board()
             if event.key == "p":
                 self.profile_one_round()
-                self.update_board()
         plt.gcf().canvas.mpl_connect('key_press_event', on_key)
 
         # No padding in figure
@@ -249,31 +252,11 @@ class MacroMateEngine(object):
         plt.ylim(w, -0.5)
 
         # Show score
-        plt.title(self.utils.get_score_string(self.board_state))
+        plt.title(self.utils.get_score_string(self.board_state, self.current_player))
         
         plt.draw()
         
 if __name__ == "__main__":
     engine = MacroMateEngine()
-
-    engine.setup_random_starts(seed=0)
-
+    engine.setup_random_starts()
     engine.create_board_visualization()
-
-
-
-    # Profile 1000 rounds
-    # def profile_1000_rounds():
-    #     for _ in range(1):
-    #         engine.simulate_one_round()
-    # cProfile.run('profile_1000_rounds()', 'profile_stats')
-    # # stats = pstats.Stats('profile_stats')
-    # # stats.sort_stats('tottime')
-    # # stats.print_stats()
-    # # Convert profiling data to call graph
-    # subprocess.run(['gprof2dot', '-f', 'pstats', 'profile_stats', '-o', 'call_graph.dot'])
-
-    # # Convert DOT file to PNG image
-    # subprocess.run(['dot', '-Tpng', 'call_graph.dot', '-o', 'call_graph.png'])
-
-    # engine.show_board()

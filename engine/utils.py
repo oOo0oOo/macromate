@@ -1,8 +1,4 @@
 import numpy as np
-from matplotlib import pyplot as plt
-
-import multiprocessing as mp
-
 
 DEPTH_SEARCH = 3
 
@@ -218,7 +214,7 @@ class Utils:
         return moves[~own_mask[moves[:, 0], moves[:, 1]], :]
     
     def check_straight_lines(self, board_state, position, own_mask, other_mask):
-        # Check horizontal and vertical lines in both directions
+        # Check horizontal and vertical lines in all directions
         directions = [(1, 0, lambda x: x < self.grid_height),     # Right
                     (0, -1, lambda x: x >= 0),                  # Down
                     (-1, 0, lambda x: x >= 0),                  # Left
@@ -250,7 +246,7 @@ class Utils:
         return np.array(positions)
     
     def check_diagonal_lines(self, board_state, position, own_mask, other_mask):
-        # Check diagonal lines in both directions
+        # Check diagonal lines in all directions
         directions = [(1, 1, lambda x, y: x < self.grid_height and y < self.grid_height),    # Diagonal to down-right
                     (-1, -1, lambda x, y: x >= 0 and y >= 0),                               # Diagonal to up-left
                     (-1, 1, lambda x, y: x >= 0 and y < self.grid_height),                   # Diagonal to up-right
@@ -354,19 +350,19 @@ class Utils:
 
         return territory_score + own_pieces_score - enemy_pieces_score - enemy_territory_score
     
-    def get_score_string(self, board_state):
+    def get_score_string(self, board_state, current_player):
         # A string with the territory for each player (with color name)
         # and the piece score for each player
-        # Find unique players
+
         players = np.unique(board_state[:, :, 0])
         players = players[players >= 0]
 
-        # Get the territory and piece score for each player
         msg = ""
         for player in players:
             is_player = board_state[:, :, 0] == player
             territory_score = np.count_nonzero(is_player)
             own_pieces = np.logical_and(board_state[:, :, 1] >= 0, is_player)
-            piece_score = np.sum(piece_values[board_state[own_pieces, 1]])
-            msg += f"{player_names[player]}: {territory_score}, {piece_score}   "
+            piece_score = np.sum(piece_values[board_state[own_pieces, 1]]) - 100  # Remove king
+            is_current = '->' if player == current_player else ''
+            msg += f"{is_current}{player_names[player]}: {territory_score}, {piece_score}   "
         return msg

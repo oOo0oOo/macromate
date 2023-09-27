@@ -1,3 +1,6 @@
+# Script to generate a chess grid from a real map
+# You can click in the plot to flip a square from land to water or vice versa
+# Auto-saves data/land_grid.npy with a grid of 0s and 1s, where 1 is land and 0 is water
 
 import geopandas as gpd
 import matplotlib.pyplot as plt
@@ -7,7 +10,7 @@ from cartopy import crs as ccrs
 
 X_LIMITS = (-10, 23)  # (-10, 37)
 Y_CENTER = 45
-GRID_HEIGHT = 32
+GRID_HEIGHT = 24
 
 X_DIFF = X_LIMITS[1] - X_LIMITS[0]
 
@@ -45,7 +48,7 @@ def save_world_map():
     plt.xlim(X_LIMITS[0], X_LIMITS[1])
     plt.ylim(Y_LIMITS[0], Y_LIMITS[1])
 
-    plt.savefig('data/world_map.png', dpi=300, bbox_inches='tight', pad_inches=0)
+    plt.savefig('data/map.png', dpi=300, bbox_inches='tight', pad_inches=0)
 
     # Delete the plot
     plt.close()
@@ -55,7 +58,7 @@ def save_chess_grid():
     # Overlay chess grid onto the world map
     # Use world_map to decide whether a grid is land or water
     # Save the chess grid as a numpy array
-    world_map = plt.imread('data/world_map.png')
+    world_map = plt.imread('data/map.png')
     world_map = world_map[:, :, 0]
 
     img_scale = grid_shape[0] / world_map.shape[1]

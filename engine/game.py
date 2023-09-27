@@ -14,14 +14,14 @@ from utils import Utils
 
 IMG_FOLDER = "data/img/"
 
+
 class MacroMateEngine(object):
-    
     def __init__(self, num_players=6):
         self.num_players = num_players
         self.current_player = 0
 
         # Load land / water map as a numpy array
-        self.land_grid = 1 - np.load('map/data/land_grid.npy')
+        self.land_grid = 1 - np.load("map/data/land_grid.npy")
 
         self.map_shape = self.land_grid.shape
         self.grid_height = self.map_shape[0]
@@ -31,7 +31,7 @@ class MacroMateEngine(object):
         for x in range(2, self.grid_height - 2):
             for y in range(2, self.grid_height - 2):
                 if self.land_grid[x, y] == 1:
-                    if np.min(self.land_grid[x-1:x+2, y-1:y+2]) == 1:
+                    if np.min(self.land_grid[x - 1 : x + 2, y - 1 : y + 2]) == 1:
                         self.inland_grid[x, y] = 1
 
         # IMAGES FOR PIECES
@@ -43,14 +43,14 @@ class MacroMateEngine(object):
 
         # PLAYER COLORS for all 8 players (nice color scheme)
         player_colors = [
-            "#1f77b4ff", # blue
-            "#ff7f0eff", # orange
-            "#2ca02cff", # green
-            "#d62728ff", # red
-            "#9467bdff", # purple
-            "#8c564bff", # brown
-            "#e377c2ff", # pink
-            "#227ffeff"  # light blue
+            "#1f77b4ff",  # blue
+            "#ff7f0eff",  # orange
+            "#2ca02cff",  # green
+            "#d62728ff",  # red
+            "#9467bdff",  # purple
+            "#8c564bff",  # brown
+            "#e377c2ff",  # pink
+            "#227ffeff",  # light blue
         ]
         self.player_colors = [colors.to_rgba(c) for c in player_colors]
         self.transparent_color = colors.to_rgba("#00000000")
@@ -71,10 +71,10 @@ class MacroMateEngine(object):
         self.move_scatter = None
         self.position_selected = None
         self.ui_possible_moves = None
-        
+
         self.reset_board_state()
         self.utils = Utils(self.board_state)
-        
+
     def reset_board_state(self):
         # BOARD STATE
         # Territory ownership as a 2D numpy array (height, height), this is both current and last occupied squares
@@ -82,33 +82,39 @@ class MacroMateEngine(object):
 
         # Pieces as a 2D numpy array (height, height)
         # -1 = empty, 0 = pawn, 1 = knight, 2 = bishop, 3 = rook, 4 = queen, 5 = king
-        self.board_state = np.ones((self.grid_height, self.grid_height, 2), dtype=int) * -1 # 2 for territory ownership and pieces 
-        self.board_state[:, :, 0] = self.land_grid - 2 # Set water to -2, normal land to -1
+        self.board_state = (
+            np.ones((self.grid_height, self.grid_height, 2), dtype=int) * -1
+        )  # 2 for territory ownership and pieces
+        self.board_state[:, :, 0] = (
+            self.land_grid - 2
+        )  # Set water to -2, normal land to -1
 
     def get_random_king_position(self):
         while True:
             x = np.random.randint(self.grid_height)
             y = np.random.randint(self.grid_height)
-            if self.inland_grid[x, y] == 1: 
-                if np.max(self.board_state[x-2:x+3, y-2:y+3, 1]) == -1:
+            if self.inland_grid[x, y] == 1:
+                if np.max(self.board_state[x - 2 : x + 3, y - 2 : y + 3, 1]) == -1:
                     return x, y
 
     def setup_random_starts(self, seed=-1):
         # Randomly place all players on the board with a starting setup:
         # King, surounded by 8 pawns
         self.reset_board_state()
-        
+
         if seed != -1:
             np.random.seed(seed)
-        
+
         for player in range(self.num_players):
             # Place king and pawns
             x, y = self.get_random_king_position()
-            self.board_state[x-1:x+2, y-1:y+2, :] = np.array([player, 0])
+            self.board_state[x - 1 : x + 2, y - 1 : y + 2, :] = np.array([player, 0])
             self.board_state[x, y, 1] = 5
 
             # Everybody gets one of each of the other pieces in the corners
-            corners = np.array([[x-1, y-1], [x-1, y+1], [x+1, y-1], [x+1, y+1]])
+            corners = np.array(
+                [[x - 1, y - 1], [x - 1, y + 1], [x + 1, y - 1], [x + 1, y + 1]]
+            )
             pieces = np.array([1, 2, 3, 4])
             np.random.shuffle(pieces)
             self.board_state[corners[:, 0], corners[:, 1], 1] = pieces
@@ -130,15 +136,17 @@ class MacroMateEngine(object):
 
         duration = round(time.time() - before, 1)
         print(f"Simulated {self.num_players-1} bots in {duration} seconds")
-    
+
     def profile_one_round(self):
         # Profile simulating one round -> call_graph.png
         def profile_round_raw():
             self.simulate_one_round()
-        
-        cProfile.runctx('profile_round_raw()', globals(), locals(), 'profile_stats')
-        subprocess.run(['gprof2dot', '-f', 'pstats', 'profile_stats', '-o', 'call_graph.dot'])
-        subprocess.run(['dot', '-Tpng', 'call_graph.dot', '-o', 'call_graph.png'])
+
+        cProfile.runctx("profile_round_raw()", globals(), locals(), "profile_stats")
+        subprocess.run(
+            ["gprof2dot", "-f", "pstats", "profile_stats", "-o", "call_graph.dot"]
+        )
+        subprocess.run(["dot", "-Tpng", "call_graph.dot", "-o", "call_graph.png"])
 
     def execute_move(self, move):
         self.board_state = self.utils.execute_move(self.board_state, move)
@@ -155,7 +163,7 @@ class MacroMateEngine(object):
             self.profile_one_round()
         else:
             self.simulate_one_round()
-        
+
         self.update_board()
 
     def onclick(self, event):
@@ -164,7 +172,9 @@ class MacroMateEngine(object):
         bs = self.board_state[x, y, :]
         position = np.array([x, y])
 
-        do_human_move = self.ui_possible_moves is not None and self.position_selected is not None
+        do_human_move = (
+            self.ui_possible_moves is not None and self.position_selected is not None
+        )
 
         if do_human_move:
             # Search for the move in the possible moves numpy
@@ -188,13 +198,20 @@ class MacroMateEngine(object):
                     self.ui_possible_moves = None
 
                 # Get all moves for this position
-                self.ui_possible_moves = self.utils.get_moves_single(self.board_state, position)
-                self.move_scatter = plt.scatter(self.ui_possible_moves[:, 1], self.ui_possible_moves[:, 0], c="green", s=50)
+                self.ui_possible_moves = self.utils.get_moves_single(
+                    self.board_state, position
+                )
+                self.move_scatter = plt.scatter(
+                    self.ui_possible_moves[:, 1],
+                    self.ui_possible_moves[:, 0],
+                    c="green",
+                    s=50,
+                )
                 plt.draw()
 
     def create_board_visualization(self):
-        plt.rcParams['toolbar'] = 'None'
-        plt.figure('MacroMate', figsize=(12, 12))
+        plt.rcParams["toolbar"] = "None"
+        plt.figure("MacroMate", figsize=(12, 12))
         self.update_board()
         plt.show()
 
@@ -205,11 +222,13 @@ class MacroMateEngine(object):
         x = np.arange(self.land_grid.shape[1])
         y = np.arange(self.land_grid.shape[0])
         xv, yv = np.meshgrid(x, y)
-        chess_pattern = (xv + yv) % 2  # gives a grid with values 1 where the sum of the x and y coordinates is even, and 0 where it's odd
+        chess_pattern = (
+            xv + yv
+        ) % 2  # gives a grid with values 1 where the sum of the x and y coordinates is even, and 0 where it's odd
 
         # Set the alpha of the chess pattern to 0.2 on water
-        plt.imshow(chess_pattern, cmap='gray', alpha=0.2)
-        plt.imshow(self.land_grid, cmap='Greens', alpha=0.5)
+        plt.imshow(chess_pattern, cmap="gray", alpha=0.2)
+        plt.imshow(self.land_grid, cmap="Greens", alpha=0.5)
 
         # Plot the territory ownership but only if >= 0 (not water or unowned)
         territories = self.board_state[:, :, 0]
@@ -227,23 +246,25 @@ class MacroMateEngine(object):
                 if piece_type != -1:
                     player = self.board_state[x, y, 0]
                     # TODO: Remove axis flip
-                    extent = [y-0.5, y+0.5, x-0.5, x+0.5]
-                    plt.imshow(self.piece_player_images[player][piece_type], extent=extent)
-        
+                    extent = [y - 0.5, y + 0.5, x - 0.5, x + 0.5]
+                    plt.imshow(
+                        self.piece_player_images[player][piece_type], extent=extent
+                    )
 
         # Click handler on plot
-        cid = plt.gcf().canvas.mpl_connect('button_press_event', self.onclick)
-        
+        cid = plt.gcf().canvas.mpl_connect("button_press_event", self.onclick)
+
         # When "s" is pressed simulate one round and update board
         def on_key(event):
             if event.key == "r":
                 self.simulate_one_round()
             if event.key == "p":
                 self.profile_one_round()
-        plt.gcf().canvas.mpl_connect('key_press_event', on_key)
+
+        plt.gcf().canvas.mpl_connect("key_press_event", on_key)
 
         # No padding in figure
-        plt.axis('off')
+        plt.axis("off")
         plt.tight_layout(pad=2)
 
         # Adjust plot limits to chess_pattern
@@ -253,9 +274,10 @@ class MacroMateEngine(object):
 
         # Show score
         plt.title(self.utils.get_score_string(self.board_state, self.current_player))
-        
+
         plt.draw()
-        
+
+
 if __name__ == "__main__":
     engine = MacroMateEngine()
     engine.setup_random_starts()

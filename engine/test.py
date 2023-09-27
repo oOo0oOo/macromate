@@ -9,7 +9,7 @@ from utils import Utils
 def get_empty_board(grid_height=32):
     return np.ones((grid_height, grid_height, 2)) * -1
 
-    
+
 class TestEngine(unittest.TestCase):
     def test_engine_init(self):
         engine = MacroMateEngine(4)
@@ -27,7 +27,7 @@ class TestEngine(unittest.TestCase):
         # All territory <= -1 pieces are -1
         self.assertTrue((engine.board_state[:, :, 0] <= -1).all())
         self.assertTrue((engine.board_state[:, :, 1] == -1).all())
-    
+
     def test_engine_setup_random_starts(self):
         engine = MacroMateEngine(8)
         engine.setup_random_starts()
@@ -48,7 +48,6 @@ class TestEngine(unittest.TestCase):
 
 
 class TestUtils(unittest.TestCase):
-
     def test_setup(self):
         board = get_empty_board()
         utils = Utils(board)
@@ -109,16 +108,18 @@ class TestUtils(unittest.TestCase):
 
             # Surround with enemy pawns
             dist = np.random.randint(1, 8)
-            ppos = np.array([
-                (pos[0] - dist, pos[1] - dist),
-                (pos[0] - dist, pos[1]),
-                (pos[0] - dist, pos[1] + dist),
-                (pos[0], pos[1] - dist),
-                (pos[0], pos[1] + dist),
-                (pos[0] + dist, pos[1] - dist),
-                (pos[0] + dist, pos[1]),
-                (pos[0] + dist, pos[1] + dist),
-            ])
+            ppos = np.array(
+                [
+                    (pos[0] - dist, pos[1] - dist),
+                    (pos[0] - dist, pos[1]),
+                    (pos[0] - dist, pos[1] + dist),
+                    (pos[0], pos[1] - dist),
+                    (pos[0], pos[1] + dist),
+                    (pos[0] + dist, pos[1] - dist),
+                    (pos[0] + dist, pos[1]),
+                    (pos[0] + dist, pos[1] + dist),
+                ]
+            )
             board[ppos[:, 0], ppos[:, 1], 0] = 1
             board[ppos[:, 0], ppos[:, 1], 1] = 0
 
@@ -126,15 +127,19 @@ class TestUtils(unittest.TestCase):
             own_mask, other_mask = utils.get_masks(board, player)
             blocked_moves = utils.get_moves_position(board, pos, own_mask, other_mask)
             num_blocked = blocked_moves.shape[0]
-            self.assertEqual(num_blocked, 8 * dist, msg=f"OTHER WRONG pos: {pos} dist: {dist}")
-            
+            self.assertEqual(
+                num_blocked, 8 * dist, msg=f"OTHER WRONG pos: {pos} dist: {dist}"
+            )
+
             # Check that the line is blocked by the own player
             # Convert pawns to own player
             board[ppos[:, 0], ppos[:, 1], 0] = 0
             own_mask, other_mask = utils.get_masks(board, player)
             blocked_moves = utils.get_moves_position(board, pos, own_mask, other_mask)
             num_blocked = blocked_moves.shape[0]
-            self.assertEqual(num_blocked, 8 * (dist - 1), msg=f"OWN WRONG pos: {pos} dist: {dist}")
+            self.assertEqual(
+                num_blocked, 8 * (dist - 1), msg=f"OWN WRONG pos: {pos} dist: {dist}"
+            )
 
     def test_check_lines_corner(self):
         board = get_empty_board()
@@ -153,24 +158,32 @@ class TestUtils(unittest.TestCase):
                 board[pos[0], pos[1], 1] = 4
 
                 # Surround with enemy pawns
-                ppos = np.array([
-                    (pos[0], pos[1] + dist * direction[1]),
-                    (pos[0] + dist * direction[0], pos[1]),
-                    (pos[0] + dist * direction[0], pos[1] + dist * direction[1]),
-                ])
+                ppos = np.array(
+                    [
+                        (pos[0], pos[1] + dist * direction[1]),
+                        (pos[0] + dist * direction[0], pos[1]),
+                        (pos[0] + dist * direction[0], pos[1] + dist * direction[1]),
+                    ]
+                )
                 board[ppos[:, 0], ppos[:, 1], 0] = 1
                 board[ppos[:, 0], ppos[:, 1], 1] = 0
 
                 own_mask, other_mask = utils.get_masks(board, 0)
                 moves = utils.get_moves_position(board, pos, own_mask, other_mask)
-                self.assertEqual(moves.shape[0], 3 * dist, msg=f"OTHER WRONG pos: {pos} dist: {dist}")
+                self.assertEqual(
+                    moves.shape[0], 3 * dist, msg=f"OTHER WRONG pos: {pos} dist: {dist}"
+                )
 
                 # Convert pawns to own player
                 board[ppos[:, 0], ppos[:, 1], 0] = 0
                 own_mask, other_mask = utils.get_masks(board, 0)
                 moves = utils.get_moves_position(board, pos, own_mask, other_mask)
-                self.assertEqual(moves.shape[0], 3 * (dist - 1), msg=f"OWN WRONG pos: {pos} dist: {dist}")
+                self.assertEqual(
+                    moves.shape[0],
+                    3 * (dist - 1),
+                    msg=f"OWN WRONG pos: {pos} dist: {dist}",
+                )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

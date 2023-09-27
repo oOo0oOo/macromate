@@ -385,7 +385,7 @@ class Utils:
         valid = board_state[positions[:, 0], positions[:, 1], 0] != -2
         return positions[valid, :]
 
-    def execute_move_simple(self, board_state, move, inplace=True):
+    def execute_move(self, board_state, move, inplace=True):
         # New territory is only the new position
         # Move is a tuple (x, y, x2, y2) starting position and end position
         if not inplace:
@@ -402,10 +402,11 @@ class Utils:
         board_state[x2, y2, :] = board_state[x, y, :]
         board_state[x, y, 1] = -1
         return board_state
-    
-    def execute_move(self, board_state, move, inplace=True):
+
+    def execute_move_area_capture(self, board_state, move, inplace=True):
         # New territory is square between king and new position
         # Move is a tuple (x, y, x2, y2) starting position and end position
+        # NOTE: This slows down search, probably due to pruning and more varied territory board score.
         if not inplace:
             board_state = board_state.copy()
 
@@ -419,8 +420,11 @@ class Utils:
         board_state[x2, y2, :] = board_state[x, y, :]
         board_state[x, y, 1] = -1
 
-        king_loc = np.where((board_state[:, :, 0] == board_state[x2, y2, 0]) & (board_state[:, :, 1] == 5))
-        
+        king_loc = np.where(
+            (board_state[:, :, 0] == board_state[x2, y2, 0])
+            & (board_state[:, :, 1] == 5)
+        )
+
         if len(king_loc[0]) == 0:
             return board_state
 
@@ -431,18 +435,18 @@ class Utils:
 
         # mask area from king square until new coords (x2, y2), inclusive
         if king_x < x2:
-            slice_x = slice(king_x+1, x2+1)
+            slice_x = slice(king_x + 1, x2 + 1)
         elif king_x > x2:
             slice_x = slice(x2, king_x)
         else:
-            slice_x = slice(king_x, king_x+1)
+            slice_x = slice(king_x, king_x + 1)
 
         if king_y < y2:
-            slice_y = slice(king_y+1, y2+1)
+            slice_y = slice(king_y + 1, y2 + 1)
         elif king_y > y2:
             slice_y = slice(y2, king_y)
         else:
-            slice_y = slice(king_y, king_y+1)
+            slice_y = slice(king_y, king_y + 1)
 
         square_mask = np.zeros_like(board_state[:, :, 0], dtype=bool)
         square_mask[slice_x, slice_y] = True
@@ -462,7 +466,7 @@ class Utils:
         player_indices = np.logical_and(is_pieces, is_player)
 
         # Territory score
-        territory_score = np.count_nonzero(is_player)
+        # territory_score = np.count_nonzero(is_player)
 
         # Piece score
         own_pieces_score = np.sum(pieces_score[player_indices])
@@ -470,15 +474,15 @@ class Utils:
         # Enemy piece and territory score
         enemy_indices = np.logical_and(is_pieces, ~is_player)
         enemy_pieces_score = np.sum(pieces_score[enemy_indices])
-        enemy_territory_score = (
-            np.count_nonzero(np.logical_and(board_state[:, :, 0] >= 0, ~is_player))
-        )
+        # enemy_territory_score = (
+        #     np.count_nonzero(np.logical_and(board_state[:, :, 0] >= 0, ~is_player))
+        # )
 
         return (
-            territory_score / 100
-            + own_pieces_score
+            # territory_score / 100
+            own_pieces_score
             - enemy_pieces_score / 5
-            - enemy_territory_score / 500
+            # - enemy_territory_score / 500
         )
 
     def get_score_string(self, board_state, current_player):

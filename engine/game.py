@@ -5,6 +5,7 @@
 import subprocess
 import time
 import cProfile
+from matplotlib.colors import ListedColormap
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -218,17 +219,16 @@ class MacroMateEngine(object):
     def update_board(self):
         plt.clf()
 
-        # Create the chess pattern on land
+        # Create the chess pattern
         x = np.arange(self.land_grid.shape[1])
         y = np.arange(self.land_grid.shape[0])
         xv, yv = np.meshgrid(x, y)
-        chess_pattern = (
-            xv + yv
-        ) % 2  # gives a grid with values 1 where the sum of the x and y coordinates is even, and 0 where it's odd
-
-        # Set the alpha of the chess pattern to 0.2 on water
+        chess_pattern = (xv + yv) % 2
         plt.imshow(chess_pattern, cmap="gray", alpha=0.2)
-        plt.imshow(self.land_grid, cmap="Greens", alpha=0.5)
+
+        # Map (water and land)
+        c_map = ListedColormap(["#add8e6", "#134713"])
+        plt.imshow(self.land_grid, cmap=c_map, alpha=0.5)
 
         # Plot the territory ownership but only if >= 0 (not water or unowned)
         territories = self.board_state[:, :, 0]
@@ -265,7 +265,7 @@ class MacroMateEngine(object):
 
         # No padding in figure
         plt.axis("off")
-        plt.tight_layout(pad=2)
+        plt.tight_layout(pad=3.5)
 
         # Adjust plot limits to chess_pattern
         w = self.grid_height - 0.5
